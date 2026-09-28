@@ -1,6 +1,7 @@
 import readline from 'readline/promises';
 import { stdin as input, stdout as output } from 'process';
 import pool from './src/config/database.js';
+import { mostrarMenuPlanes } from './src/commands/PlanCommands.js';
 import { mostrarMenuCliente } from './src/commands/ClientCommands.js';
 
 // Única instancia de readline para toda la aplicación
@@ -18,7 +19,7 @@ async function main() {
         while (!salir) {
             console.clear();
             console.log("|==============================================|");
-            console.log("| ===========      GYM SYSTEM         ========= |");
+            console.log("| ===========      GYM SYSTEM         =========|");
             console.log("|==============================================|");
             console.log('1. Gestionar Clientes/Usuarios');
             console.log('2. Gestion de planes de Entrenamiento (En construcción)');
@@ -28,17 +29,18 @@ async function main() {
 
             switch (opcion.trim()) {
                 case '1':
-                    // Pasamos la misma instancia de rl al submenú
                     await mostrarMenuCliente(rl);
                     break;
+                
                 case '2':
-                    console.log('\nGestión de planes en construcción...');
-                    await rl.question('\nPresiona Enter para continuar...');
+                    await mostrarMenuPlanes(rl);
                     break;
+
                 case '3':
                     console.log('\nSaliendo del sistema...');
                     salir = true;
-                    break;
+                break;
+
                 default:
                     console.log('\nOpción no válida.');
                     await rl.question('\nPresiona Enter para continuar...');
