@@ -3,6 +3,7 @@ import { stdin as input, stdout as output } from 'process';
 import pool from './src/config/database.js';
 import { mostrarMenuPlanes } from './src/commands/PlanCommands.js';
 import { mostrarMenuCliente } from './src/commands/ClientCommands.js';
+import { mostrarMenuSeguimiento } from './src/commands/SeguimientoCommands.js';
 
 // Única instancia de readline para toda la aplicación
 const rl = readline.createInterface({ input, output });
@@ -22,8 +23,9 @@ async function main() {
             console.log("| ===========      GYM SYSTEM         =========|");
             console.log("|==============================================|");
             console.log('1. Gestionar Clientes/Usuarios');
-            console.log('2. Gestion de planes de Entrenamiento (En construcción)');
-            console.log('3. Salir');
+            console.log('2. Gestión de planes de Entrenamiento)');
+            console.log('3. Segimiento de Fisico y Avances )');
+            console.log('4. Salir');
 
             const opcion = await rl.question('\nSelecciona una opcion: ');
 
@@ -37,6 +39,10 @@ async function main() {
                     break;
 
                 case '3':
+                    await mostrarMenuSeguimiento(rl);
+                    break;
+
+                case '4':
                     console.log('\nSaliendo del sistema...');
                     salir = true;
                 break;
