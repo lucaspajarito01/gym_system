@@ -29,7 +29,8 @@ export class ClientCommand {
                         { name: '3. Actualizar cliente', value: 'actualizar' },
                         { name: '4. Eliminar cliente', value: 'eliminar' },
                         { name: '5. Asignar plan y crear contrato', value: 'contrato' },
-                        { name: '6. Volver al menú principal', value: 'volver' }
+                        { name: '6. Ver contrato de usuario por ID', value: 'ver_contrato' },
+                        { name: '7. Volver al menú principal', value: 'volver' }
                     ]
                 }
             ]);
@@ -49,6 +50,9 @@ export class ClientCommand {
                     break;
                 case 'contrato':
                     await this.asignarContratoPrompt();
+                    break;
+                case 'ver_contrato':
+                    await this.verContratoPorId();
                     break;
                 case 'volver':
                     salir = true;
@@ -201,4 +205,26 @@ export class ClientCommand {
         }
         await inquirer.prompt([{ type: 'input', name: 'continuar', message: 'Presiona Enter para continuar...' }]);
     }
+
+    async verContratoPorId() {
+    const { clienteId } = await inquirer.prompt([
+        { 
+            type: 'input', 
+            name: 'clienteId', 
+            message: 'Ingrese el ID del cliente para consultar su contrato:' 
+        }
+    ]);
+
+    try {
+        const contratos = await this.clientService.verContratoPorCliente(clienteId);
+        console.log(chalk.green('\n--- CONTRATO(S) ENCONTRADO(S) ---'));
+        console.table(contratos);
+    } catch (error) {
+        console.log(chalk.red(`\n[Aviso]: ${error.message}`));
+    }
+
+    await inquirer.prompt([
+        { type: 'input', name: 'continuar', message: 'Presiona Enter para continuar...' }
+    ]);
+}
 }

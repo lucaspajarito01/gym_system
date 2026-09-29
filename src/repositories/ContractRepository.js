@@ -26,4 +26,15 @@ export class ContractRepository {
         `, [clienteId]);
         return rows;
     }
+  async obtenerContratoPorClienteId(clienteId) {
+    const [rows] = await pool.query(
+        `SELECT c.id, c.cliente_id, c.plan_id, c.condiciones, c.precio, c.fecha_inicio, c.fecha_fin, c.estado, p.nombre AS plan_nombre 
+         FROM contratos c
+         JOIN plan_entrenamientos p ON c.plan_id = p.id
+         WHERE c.cliente_id = ?`,
+        [clienteId]
+    );
+    return rows;
+}
+
 }
