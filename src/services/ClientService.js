@@ -1,9 +1,12 @@
 import { Client } from '../models/Client.js';
 import { ClientRepository } from '../repositories/ClientRepository.js';
+import { ContractRepository } from '../repositories/ContractRepository.js';
 
 export class ClientService {
     constructor() {
         this.clientRepo = new ClientRepository();
+        this.contractRepository = new ContractRepository();
+        
     }
 
     async registrarCliente(data) {
@@ -53,4 +56,18 @@ export class ClientService {
     async obtenerTiposDocumento() {
         return await this.clientRepo.getTiposDocumento();
     }
+
+    async verContratoPorCliente(clienteId) {
+    if (!clienteId || isNaN(clienteId)) {
+        throw new Error("Debe ingresar un ID de cliente válido.");
+    }
+
+    const contratos = await this.contractRepository.obtenerContratoPorClienteId(clienteId);
+    
+    if (contratos.length === 0) {
+        throw new Error("No se encontraron contratos activos para el ID de cliente proporcionado.");
+    }
+
+    return contratos;
+}
 }

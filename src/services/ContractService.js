@@ -26,4 +26,18 @@ export class ContractService {
     async obtenerContratosDeCliente(clienteId) {
         return await this.contractRepo.findByClienteId(clienteId);
     }
+
+    async verContratoPorCliente(clienteId) {
+    if (!clienteId || isNaN(clienteId)) {
+        throw new Error("Debe ingresar un ID de cliente válido.");
+    }
+
+    const contratos = await this.contractRepository.obtenerContratoPorClienteId(clienteId);
+    
+    if (contratos.length === 0) {
+        throw new Error("No se encontraron contratos activos para el ID de cliente proporcionado.");
+    }
+
+    return contratos;
+}
 }
