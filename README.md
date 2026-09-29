@@ -2,6 +2,9 @@
 
 Sistema CLI desarrollado con **Node.js, JavaScript (ESM) y MySQL** para la gestión de clientes, planes, contratos, seguimiento físico, nutrición y finanzas.
 
+Enlace a documeto SCRUM Y Video de presentación.
+https://drive.google.com/drive/folders/1vAG85--8GPY2vPbwCiAmwQDoEVEOdMMP?usp=sharing
+
 ## 📦 Instalación y uso
 
 ```bash
