@@ -4,6 +4,7 @@ import { ClientCommand } from './ClientCommand.js';
 import { PlanCommand } from './PlanCommand.js';
 import { SeguimientoCommand } from './SeguimientoCommand.js';
 import { NutritionCommand } from './NutritionCommand.js';
+import { FinanceCommand } from './FinanceCommand.js';
 
 export class MainMenu {
     async iniciar() {
@@ -25,7 +26,7 @@ export class MainMenu {
                         { name: '2. Gestión de Planes y Contratos', value: 'planes' },
                         { name: '3. Seguimiento Físico', value: 'seguimiento' },
                         { name: '3. Plan Nutricion', value: 'nutricion' },
-                        { name: '4. Gestión Financiera', value: 'financiero' },
+                        { name: '4. Gestión Financiera', value: 'finanzas' },
                         { name: '5. Salir', value: 'salir' }
                     ]
                 }
@@ -48,9 +49,9 @@ export class MainMenu {
                     const nutritionCommand = new NutritionCommand();
                     await nutritionCommand.ejecutarMenu();
                     break;
-                case 'financiero':
-                    console.log(chalk.yellow('\n[Módulo Financiero en construcción...]'));
-                    await inquirer.prompt([{ type: 'input', name: 'cont', message: 'Presiona Enter para continuar...' }]);
+                case 'finanzas':
+                    const financeCommand = new FinanceCommand();
+                    await financeCommand.ejecutarMenu();
                     break;
                 case 'salir':
                     salir = true;
