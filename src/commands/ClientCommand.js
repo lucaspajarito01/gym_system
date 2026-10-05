@@ -23,6 +23,7 @@ export class ClientCommand {
                     type: 'select',
                     name: 'opcion',
                     message: 'Seleccione una acción:',
+                    pageSize: 8,
                     choices: [
                         { name: '1. Registrar nuevo cliente', value: 'crear' },
                         { name: '2. Listar todos los clientes', value: 'listar' },
