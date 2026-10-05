@@ -1,9 +1,12 @@
 import { Plan } from '../models/Plan.js';
 import { PlanRepository } from '../repositories/PlanRepository.js';
+import { ContractRepository } from '../repositories/ContractRepository.js';
+import pool from '../config/database.js';
 
 export class PlanService {
     constructor() {
         this.planRepo = new PlanRepository();
+        this.contractRepo = new ContractRepository();
     }
 
     async registrarPlan(data) {
@@ -31,10 +34,25 @@ export class PlanService {
     }
 
     async eliminarPlan(id) {
-        const planExistente = await this.planRepo.findById(id);
-        if (!planExistente) {
-            throw new Error(`No se encontró el plan de entrenamiento con ID ${id}`);
+        const connection = await pool.getConnection();
+        try {
+            await connection.beginTransaction();
+            const [planes] = await connection.query(
+                'SELECT id FROM plan_entrenamientos WHERE id = ? FOR UPDATE',
+                [id]
+            );
+            if (planes.length === 0) {
+                throw new Error(`No se encontró el plan de entrenamiento con ID ${id}`);
+            }
+
+            await this.contractRepo.deleteByPlan(id, connection);
+            await this.planRepo.delete(id, connection);
+            await connection.commit();
+        } catch (error) {
+            await connection.rollback();
+            throw error;
+        } finally {
+            connection.release();
         }
-        await this.planRepo.delete(id);
     }
 }

@@ -59,4 +59,20 @@ export class FinanceRepository {
         const [rows] = await pool.query('SELECT id, nombre_categoria FROM categoria_servicios');
         return rows;
     }
+
+    async findCategoryByName(nombre, connection = pool) {
+        const [rows] = await connection.query(
+            'SELECT id FROM categoria_servicios WHERE LOWER(TRIM(nombre_categoria)) = LOWER(?) LIMIT 1',
+            [nombre]
+        );
+        return rows[0] || null;
+    }
+
+    async createCategory(nombre, connection = pool) {
+        const [result] = await connection.query(
+            'INSERT INTO categoria_servicios (nombre_categoria) VALUES (?)',
+            [nombre]
+        );
+        return result.insertId;
+    }
 }

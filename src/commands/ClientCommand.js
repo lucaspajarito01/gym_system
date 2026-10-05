@@ -23,6 +23,7 @@ export class ClientCommand {
                     type: 'select',
                     name: 'opcion',
                     message: 'Seleccione una acción:',
+                    pageSize: 8,
                     choices: [
                         { name: '1. Registrar nuevo cliente', value: 'crear' },
                         { name: '2. Listar todos los clientes', value: 'listar' },
@@ -30,7 +31,8 @@ export class ClientCommand {
                         { name: '4. Eliminar cliente', value: 'eliminar' },
                         { name: '5. Asignar plan y crear contrato', value: 'contrato' },
                         { name: '6. Ver contrato de usuario por ID', value: 'ver_contrato' },
-                        { name: '7. Volver al menú principal', value: 'volver' }
+                        { name: '7. Eliminar plan asignado a un cliente', value: 'eliminar_plan' },
+                        { name: '8. Volver al menú principal', value: 'volver' }
                     ]
                 }
             ]);
@@ -54,6 +56,9 @@ export class ClientCommand {
                 case 'ver_contrato':
                     await this.verContratoPorId();
                     break;
+                case 'eliminar_plan':
+                    await this.eliminarPlanAsignadoPrompt();
+                    break;
                 case 'volver':
                     salir = true;
                     break;
@@ -64,23 +69,42 @@ export class ClientCommand {
     async crearClientePrompt() {
         try {
             const tiposDoc = await this.clientService.obtenerTiposDocumento();
-            if (tiposDoc.length === 0) {
-                console.log(chalk.yellow('\n⚠️ No hay tipos de documento en la BD.'));
-                await inquirer.prompt([{ type: 'input', name: 'cont', message: 'Presiona Enter para continuar...' }]);
-                return;
+            const choicesTipos = tiposDoc.map(t => ({ name: t.tipo, value: t.id }));
+            choicesTipos.push({ name: 'Registrar nuevo tipo de documento', value: 'nuevo' });
+
+            const { tipo_documento } = await inquirer.prompt([
+                { type: 'select', name: 'tipo_documento', message: 'Seleccione el tipo de documento:', choices: choicesTipos }
+            ]);
+            let nombre_tipo_documento;
+            if (tipo_documento === 'nuevo') {
+                const respuesta = await inquirer.prompt([
+                    {
+                        type: 'input',
+                        name: 'nombre_tipo_documento',
+                        message: 'Ingrese el tipo de documento (máx. 10 caracteres):',
+                        validate: valor => {
+                            const tipo = valor.trim();
+                            if (!tipo) return 'El tipo de documento es obligatorio.';
+                            if (tipo.length > 10) return 'No puede superar 10 caracteres.';
+                            return true;
+                        }
+                    }
+                ]);
+                nombre_tipo_documento = respuesta.nombre_tipo_documento;
             }
 
-            const choicesTipos = tiposDoc.map(t => ({ name: t.tipo, value: t.id }));
-
             const respuestas = await inquirer.prompt([
-                { type: 'select', name: 'tipo_documento', message: 'Seleccione el tipo de documento:', choices: choicesTipos },
                 { type: 'input', name: 'nombre', message: 'Ingrese nombre completo:' },
                 { type: 'input', name: 'edad', message: 'Ingrese edad:' },
                 { type: 'input', name: 'telefono', message: 'Ingrese teléfono:' },
                 { type: 'input', name: 'correo', message: 'Ingrese correo electrónico:' }
             ]);
 
-            await this.clientService.registrarCliente(respuestas);
+            await this.clientService.registrarCliente({
+                ...respuestas,
+                tipo_documento,
+                nombre_tipo_documento
+            });
             console.log(chalk.green('\n✅ ¡Cliente registrado exitosamente!'));
         } catch (error) {
             console.log(chalk.red(`\n❌ Error: ${error.message}`));
@@ -188,7 +212,16 @@ export class ClientCommand {
                 return;
             }
 
-            const choicesPlanes = planes.map(p => ({ name: `${p.nombre} (Nivel ${p.nivel} - ${p.duracion})`, value: p.id }));
+            const contratosExistentes = await this.contractService.obtenerContratosDeCliente(clienteId);
+            const planesAsignados = new Set(contratosExistentes.map(contrato => Number(contrato.plan_id)));
+            const planesDisponibles = planes.filter(plan => !planesAsignados.has(Number(plan.id)));
+            if (planesDisponibles.length === 0) {
+                console.log(chalk.yellow('\n⚠️ Este cliente ya tiene asignados todos los planes disponibles.'));
+                await inquirer.prompt([{ type: 'input', name: 'cont', message: 'Presiona Enter para continuar...' }]);
+                return;
+            }
+
+            const choicesPlanes = planesDisponibles.map(p => ({ name: `${p.nombre} (Nivel ${p.nivel} - ${p.duracion})`, value: p.id }));
             const { planId } = await inquirer.prompt([
                 { type: 'select', name: 'planId', message: 'Seleccione el plan de entrenamiento a asignar:', choices: choicesPlanes }
             ]);
@@ -202,6 +235,72 @@ export class ClientCommand {
             console.log(chalk.green('\n✅ ¡Plan asignado y contrato creado exitosamente de forma automática!'));
         } catch (error) {
             console.log(chalk.red(`\n❌ Error al crear contrato: ${error.message}`));
+        }
+        await inquirer.prompt([{ type: 'input', name: 'continuar', message: 'Presiona Enter para continuar...' }]);
+    }
+
+    async eliminarPlanAsignadoPrompt() {
+        try {
+            const clientes = await this.clientService.listarClientes();
+            if (clientes.length === 0) {
+                console.log(chalk.yellow('\n⚠️ No hay clientes registrados.'));
+                await inquirer.prompt([{ type: 'input', name: 'cont', message: 'Presiona Enter para continuar...' }]);
+                return;
+            }
+
+            const choicesClientes = clientes.map(c => ({ name: `${c.id} - ${c.nombre} (${c.correo})`, value: c.id }));
+            const { clienteId } = await inquirer.prompt([
+                { type: 'select', name: 'clienteId', message: 'Seleccione el cliente:', choices: choicesClientes }
+            ]);
+
+            const contratos = await this.contractService.obtenerContratosDeCliente(clienteId);
+            if (contratos.length === 0) {
+                console.log(chalk.yellow('\n⚠️ Este cliente no tiene planes asignados.'));
+                await inquirer.prompt([{ type: 'input', name: 'cont', message: 'Presiona Enter para continuar...' }]);
+                return;
+            }
+
+            const planesAsignados = [...contratos.reduce((planes, contrato) => {
+                const planId = Number(contrato.plan_id);
+                const plan = planes.get(planId) || {
+                    id: planId,
+                    nombre: contrato.plan_nombre,
+                    contratos: 0
+                };
+                plan.contratos += 1;
+                planes.set(planId, plan);
+                return planes;
+            }, new Map()).values()];
+
+            const { planId } = await inquirer.prompt([
+                {
+                    type: 'select',
+                    name: 'planId',
+                    message: 'Seleccione el plan asignado que desea eliminar:',
+                    choices: planesAsignados.map(plan => ({
+                        name: `${plan.nombre} (${plan.contratos} contrato(s))`,
+                        value: plan.id
+                    }))
+                }
+            ]);
+
+            const { confirmar } = await inquirer.prompt([
+                {
+                    type: 'select',
+                    name: 'confirmar',
+                    message: '¿Eliminar el plan asignado y sus contratos asociados?',
+                    choices: [{ name: 'Sí', value: true }, { name: 'No', value: false }]
+                }
+            ]);
+
+            if (confirmar) {
+                await this.contractService.eliminarPlanAsignado(clienteId, planId);
+                console.log(chalk.green('\n✅ ¡Plan asignado y sus contratos eliminados exitosamente!'));
+            } else {
+                console.log(chalk.yellow('\n⚠️ Operación cancelada.'));
+            }
+        } catch (error) {
+            console.log(chalk.red(`\n❌ Error al eliminar el plan: ${error.message}`));
         }
         await inquirer.prompt([{ type: 'input', name: 'continuar', message: 'Presiona Enter para continuar...' }]);
     }

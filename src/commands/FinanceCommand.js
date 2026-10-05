@@ -58,16 +58,28 @@ export class FinanceCommand {
             console.log(chalk.yellow(`\n--- Registro de ${tipo.toUpperCase()} (Con Transacción Segura) ---`));
 
             const categorias = await this.financeService.obtenerCategorias();
-            if (categorias.length === 0) {
-                console.log(chalk.yellow('\n⚠️ No hay categorías de servicios registradas.'));
-                await inquirer.prompt([{ type: 'input', name: 'cont', message: 'Presiona Enter para continuar...' }]);
-                return;
-            }
-
             const choicesCategorias = categorias.map(c => ({ name: `${c.id} - ${c.nombre_categoria}`, value: c.id }));
+            choicesCategorias.push({ name: 'Registrar nueva categoría', value: 'nueva' });
             const { categoria } = await inquirer.prompt([
                 { type: 'select', name: 'categoria', message: 'Seleccione la categoría:', choices: choicesCategorias }
             ]);
+            let nombre_categoria;
+            if (categoria === 'nueva') {
+                const respuesta = await inquirer.prompt([
+                    {
+                        type: 'input',
+                        name: 'nombre_categoria',
+                        message: 'Ingrese el nombre de la nueva categoría (máx. 50 caracteres):',
+                        validate: valor => {
+                            const nombre = valor.trim();
+                            if (!nombre) return 'El nombre de la categoría es obligatorio.';
+                            if (nombre.length > 50) return 'El nombre no puede superar 50 caracteres.';
+                            return true;
+                        }
+                    }
+                ]);
+                nombre_categoria = respuesta.nombre_categoria;
+            }
 
             const clientes = await this.clientService.listarClientes();
             let cliente_id = null;
@@ -90,7 +102,8 @@ export class FinanceCommand {
             // Llamada al servicio que ejecuta la transacción real con control de commit/rollback
             await this.financeService.registrarMovimientoConTransaccion({
                 tipo,
-                categoria,
+                categoria: nombre_categoria ? undefined : categoria,
+                nombre_categoria,
                 monto: parseFloat(inputs.monto),
                 cliente_id,
                 descripcion: inputs.descripcion

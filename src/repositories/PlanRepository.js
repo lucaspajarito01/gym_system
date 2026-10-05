@@ -34,7 +34,7 @@ export class PlanRepository {
         return planData;
     }
 
-    async delete(id) {
-        await pool.query('DELETE FROM plan_entrenamientos WHERE id = ?', [id]);
+    async delete(id, connection = pool) {
+        await connection.query('DELETE FROM plan_entrenamientos WHERE id = ?', [id]);
     }
 }
