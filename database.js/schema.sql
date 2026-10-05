@@ -115,3 +115,14 @@ CREATE TABLE movimientos_financieros (
     FOREIGN KEY (categoria)
         REFERENCES categoria_servicios(id)
 );
+
+CREATE TABLE attendances (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    client_id INT NOT NULL,
+    plan_id INT NOT NULL,
+    date DATETIME NOT NULL,
+    session_type ENUM('group', 'individual') NOT NULL,
+    notes TEXT,
+    FOREIGN KEY (client_id) REFERENCES clientes(id),
+    FOREIGN KEY (plan_id) REFERENCES plan_entrenamientos(id)
+);

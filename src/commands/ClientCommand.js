@@ -3,6 +3,7 @@ import chalk from 'chalk';
 import { ClientService } from '../services/ClientService.js';
 import { PlanService } from '../services/PlanService.js';
 import { ContractService } from '../services/ContractService.js';
+import { AttendanceService } from '../services/AttendanceService.js';
 
 export class ClientCommand {
     constructor() {
@@ -23,7 +24,7 @@ export class ClientCommand {
                     type: 'select',
                     name: 'opcion',
                     message: 'Seleccione una acción:',
-                    pageSize: 8,
+                    pageSize: 11,
                     choices: [
                         { name: '1. Registrar nuevo cliente', value: 'crear' },
                         { name: '2. Listar todos los clientes', value: 'listar' },
@@ -32,7 +33,10 @@ export class ClientCommand {
                         { name: '5. Asignar plan y crear contrato', value: 'contrato' },
                         { name: '6. Ver contrato de usuario por ID', value: 'ver_contrato' },
                         { name: '7. Eliminar plan asignado a un cliente', value: 'eliminar_plan' },
-                        { name: '8. Volver al menú principal', value: 'volver' }
+                        { name: '8. Registrar asistencia de un cliente', value: 'registrar_asistencia' },
+                        { name: '9. Listar asistencias de clientes', value: 'listar_asistencias' },
+                        { name: '10. Generar reporte semanal de asistencias', value: 'generar_reporte_semanal' },
+                        { name: '11. Volver al menú principal', value: 'volver' }
                     ]
                 }
             ]);
@@ -55,6 +59,18 @@ export class ClientCommand {
                     break;
                 case 'ver_contrato':
                     await this.verContratoPorId();
+                    break;
+                case 'eliminar_plan':
+                    await this.eliminarPlanAsignadoPrompt();
+                    break;
+                case 'registrar_asistencia':
+                    await this.registrarAsistenciaPrompt();
+                    break;
+                case 'listar_asistencias':
+                    await this.listarAsistenciasPrompt();
+                    break;
+                case 'generar_reporte_semanal':
+                    await this.generarReporteSemanalPrompt();
                     break;
                 case 'eliminar_plan':
                     await this.eliminarPlanAsignadoPrompt();
@@ -325,5 +341,63 @@ export class ClientCommand {
     await inquirer.prompt([
         { type: 'input', name: 'continuar', message: 'Presiona Enter para continuar...' }
     ]);
+}
+
+async listarAsistenciasPrompt() {
+    try {
+        const { clientId, startDate, endDate } = await inquirer.prompt([
+            { type: 'input', name: 'clientId', message: 'Ingrese el ID del cliente (opcional):', default: '' },
+            { type: 'input', name: 'startDate', message: 'Fecha de inicio (YYYY-MM-DD):', default: '' },
+            { type: 'input', name: 'endDate', message: 'Fecha de fin (YYYY-MM-DD):', default: '' }
+        ]);
+
+        const asistencias = await this.attendanceService.listarAsistencias({
+            clientId: clientId || null,
+            startDate: startDate || null,
+            endDate: endDate || null
+        });
+
+        if (asistencias.length === 0) {
+            console.log(chalk.yellow('\n⚠️ No se encontraron asistencias.'));
+        } else {
+            console.table(asistencias);
+        }
+    } catch (error) {
+        console.log(chalk.red(`\n❌ Error al listar asistencias: ${error.message}`));
+    }
+}
+
+async registrarAsistenciaPrompt() { 
+    try {
+        const { clientId, planId, sessionType, notes } = await inquirer.prompt([
+            { type: 'input', name: 'clientId', message: 'Ingrese el ID del cliente:' },
+            { type: 'input', name: 'planId', message: 'Ingrese el ID del plan de entrenamiento:' },
+            { type: 'select', name: 'sessionType', message: 'Tipo de sesión:', choices: ['group', 'individual'] },
+            { type: 'input', name: 'notes', message: 'Notas adicionales (opcional):' }
+        ]);
+
+        
+
+        await this.attendanceService.registrarAsistencia({ clientId, planId, sessionType, notes });
+        console.log(chalk.green('\n✅ ¡Asistencia registrada exitosamente!'));
+    } catch (error) {
+        console.log(chalk.red(`\n❌ Error al registrar asistencia: ${error.message}`));
+    }
+}
+
+async generarReporteSemanalPrompt() {
+    try {
+        const { clientId } = await inquirer.prompt([
+            { type: 'input', name: 'clientId', message: 'Ingrese el ID del cliente:' }
+        ]);
+
+        const reporte = await this.attendanceService.generarReporteSemanal(clientId);
+        console.log(chalk.green('\n--- REPORTE SEMANAL ---'));
+        console.log(`Total de sesiones programadas: ${reporte.total_sessions}`);
+        console.log(`Sesiones asistidas: ${reporte.attended_sessions}`);
+        console.log(`Tasa de cumplimiento: ${reporte.complianceRate.toFixed(2)}%`);
+    } catch (error) {
+        console.log(chalk.red(`\n❌ Error al generar reporte: ${error.message}`));
+    }
 }
 }
