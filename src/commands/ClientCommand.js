@@ -30,7 +30,8 @@ export class ClientCommand {
                         { name: '4. Eliminar cliente', value: 'eliminar' },
                         { name: '5. Asignar plan y crear contrato', value: 'contrato' },
                         { name: '6. Ver contrato de usuario por ID', value: 'ver_contrato' },
-                        { name: '7. Volver al menú principal', value: 'volver' }
+                        { name: '7. Eliminar plan asignado a un cliente', value: 'eliminar_plan' },
+                        { name: '8. Volver al menú principal', value: 'volver' }
                     ]
                 }
             ]);
@@ -53,6 +54,9 @@ export class ClientCommand {
                     break;
                 case 'ver_contrato':
                     await this.verContratoPorId();
+                    break;
+                case 'eliminar_plan':
+                    await this.eliminarPlanAsignadoPrompt();
                     break;
                 case 'volver':
                     salir = true;
@@ -188,7 +192,16 @@ export class ClientCommand {
                 return;
             }
 
-            const choicesPlanes = planes.map(p => ({ name: `${p.nombre} (Nivel ${p.nivel} - ${p.duracion})`, value: p.id }));
+            const contratosExistentes = await this.contractService.obtenerContratosDeCliente(clienteId);
+            const planesAsignados = new Set(contratosExistentes.map(contrato => Number(contrato.plan_id)));
+            const planesDisponibles = planes.filter(plan => !planesAsignados.has(Number(plan.id)));
+            if (planesDisponibles.length === 0) {
+                console.log(chalk.yellow('\n⚠️ Este cliente ya tiene asignados todos los planes disponibles.'));
+                await inquirer.prompt([{ type: 'input', name: 'cont', message: 'Presiona Enter para continuar...' }]);
+                return;
+            }
+
+            const choicesPlanes = planesDisponibles.map(p => ({ name: `${p.nombre} (Nivel ${p.nivel} - ${p.duracion})`, value: p.id }));
             const { planId } = await inquirer.prompt([
                 { type: 'select', name: 'planId', message: 'Seleccione el plan de entrenamiento a asignar:', choices: choicesPlanes }
             ]);
@@ -202,6 +215,72 @@ export class ClientCommand {
             console.log(chalk.green('\n✅ ¡Plan asignado y contrato creado exitosamente de forma automática!'));
         } catch (error) {
             console.log(chalk.red(`\n❌ Error al crear contrato: ${error.message}`));
+        }
+        await inquirer.prompt([{ type: 'input', name: 'continuar', message: 'Presiona Enter para continuar...' }]);
+    }
+
+    async eliminarPlanAsignadoPrompt() {
+        try {
+            const clientes = await this.clientService.listarClientes();
+            if (clientes.length === 0) {
+                console.log(chalk.yellow('\n⚠️ No hay clientes registrados.'));
+                await inquirer.prompt([{ type: 'input', name: 'cont', message: 'Presiona Enter para continuar...' }]);
+                return;
+            }
+
+            const choicesClientes = clientes.map(c => ({ name: `${c.id} - ${c.nombre} (${c.correo})`, value: c.id }));
+            const { clienteId } = await inquirer.prompt([
+                { type: 'select', name: 'clienteId', message: 'Seleccione el cliente:', choices: choicesClientes }
+            ]);
+
+            const contratos = await this.contractService.obtenerContratosDeCliente(clienteId);
+            if (contratos.length === 0) {
+                console.log(chalk.yellow('\n⚠️ Este cliente no tiene planes asignados.'));
+                await inquirer.prompt([{ type: 'input', name: 'cont', message: 'Presiona Enter para continuar...' }]);
+                return;
+            }
+
+            const planesAsignados = [...contratos.reduce((planes, contrato) => {
+                const planId = Number(contrato.plan_id);
+                const plan = planes.get(planId) || {
+                    id: planId,
+                    nombre: contrato.plan_nombre,
+                    contratos: 0
+                };
+                plan.contratos += 1;
+                planes.set(planId, plan);
+                return planes;
+            }, new Map()).values()];
+
+            const { planId } = await inquirer.prompt([
+                {
+                    type: 'select',
+                    name: 'planId',
+                    message: 'Seleccione el plan asignado que desea eliminar:',
+                    choices: planesAsignados.map(plan => ({
+                        name: `${plan.nombre} (${plan.contratos} contrato(s))`,
+                        value: plan.id
+                    }))
+                }
+            ]);
+
+            const { confirmar } = await inquirer.prompt([
+                {
+                    type: 'select',
+                    name: 'confirmar',
+                    message: '¿Eliminar el plan asignado y sus contratos asociados?',
+                    choices: [{ name: 'Sí', value: true }, { name: 'No', value: false }]
+                }
+            ]);
+
+            if (confirmar) {
+                await this.contractService.eliminarPlanAsignado(clienteId, planId);
+                console.log(chalk.green('\n✅ ¡Plan asignado y sus contratos eliminados exitosamente!'));
+            } else {
+                console.log(chalk.yellow('\n⚠️ Operación cancelada.'));
+            }
+        } catch (error) {
+            console.log(chalk.red(`\n❌ Error al eliminar el plan: ${error.message}`));
         }
         await inquirer.prompt([{ type: 'input', name: 'continuar', message: 'Presiona Enter para continuar...' }]);
     }
