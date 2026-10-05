@@ -1,6 +1,7 @@
 import { Client } from '../models/Client.js';
 import { ClientRepository } from '../repositories/ClientRepository.js';
 import { ContractRepository } from '../repositories/ContractRepository.js';
+import pool from '../config/database.js';
 
 export class ClientService {
     constructor() {
@@ -10,20 +11,53 @@ export class ClientService {
     }
 
     async registrarCliente(data) {
-        const client = new Client(
-            parseInt(data.tipo_documento),
-            data.nombre,
-            parseInt(data.edad),
-            data.correo,
-            data.telefono
-        );
-        
-        const existe = await this.clientRepo.findByCorreo(client.correo);
-        if (existe) {
-            throw new Error(`Ya existe un cliente registrado con el correo ${client.correo}`);
-        }
+        const connection = await pool.getConnection();
+        try {
+            await connection.beginTransaction();
 
-        return await this.clientRepo.create(client.toPlainObject());
+            let tipoDocumentoId;
+            if (data.tipo_documento === 'nuevo') {
+                const tipo = String(data.nombre_tipo_documento || '').trim();
+                if (!tipo) {
+                    throw new Error('El tipo de documento es obligatorio.');
+                }
+                if (tipo.length > 10) {
+                    throw new Error('El tipo de documento no puede superar 10 caracteres.');
+                }
+
+                const tipoExistente = await this.clientRepo.findTipoDocumentoByNombre(tipo, connection);
+                tipoDocumentoId = tipoExistente
+                    ? tipoExistente.id
+                    : await this.clientRepo.createTipoDocumento(tipo, connection);
+            } else {
+                tipoDocumentoId = Number(data.tipo_documento);
+                if (!Number.isInteger(tipoDocumentoId) || tipoDocumentoId <= 0) {
+                    throw new Error('Debe seleccionar un tipo de documento válido.');
+                }
+            }
+
+            const client = new Client(
+                tipoDocumentoId,
+                data.nombre,
+                parseInt(data.edad),
+                data.correo,
+                data.telefono
+            );
+
+            const existe = await this.clientRepo.findByCorreo(client.correo, connection);
+            if (existe) {
+                throw new Error(`Ya existe un cliente registrado con el correo ${client.correo}`);
+            }
+
+            const nuevoCliente = await this.clientRepo.create(client.toPlainObject(), connection);
+            await connection.commit();
+            return nuevoCliente;
+        } catch (error) {
+            await connection.rollback();
+            throw error;
+        } finally {
+            connection.release();
+        }
     }
 
     async listarClientes() {

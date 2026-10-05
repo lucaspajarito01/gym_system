@@ -22,8 +22,33 @@ export class FinanceService {
                 throw new Error("El monto debe ser un valor numérico mayor a 0.");
             }
 
+            let categoria = data.categoria;
+            if (data.nombre_categoria !== undefined) {
+                const nombreCategoria = String(data.nombre_categoria).trim();
+                if (!nombreCategoria) {
+                    throw new Error('El nombre de la categoría no puede estar vacío.');
+                }
+                if (nombreCategoria.length > 50) {
+                    throw new Error('El nombre de la categoría no puede superar 50 caracteres.');
+                }
+
+                const categoriaExistente = await this.financeRepo.findCategoryByName(
+                    nombreCategoria,
+                    connection
+                );
+                categoria = categoriaExistente
+                    ? categoriaExistente.id
+                    : await this.financeRepo.createCategory(nombreCategoria, connection);
+            }
+            if (!Number.isInteger(Number(categoria)) || Number(categoria) <= 0) {
+                throw new Error('Debe seleccionar o registrar una categoría válida.');
+            }
+
             // Ejecución de la inserción utilizando la misma conexión de la transacción
-            const nuevoMovimiento = await this.financeRepo.create(data, connection);
+            const nuevoMovimiento = await this.financeRepo.create({
+                ...data,
+                categoria: Number(categoria)
+            }, connection);
 
             // Confirmar transacción (COMMIT) si todo sale bien
             await connection.commit();

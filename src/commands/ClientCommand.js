@@ -69,23 +69,42 @@ export class ClientCommand {
     async crearClientePrompt() {
         try {
             const tiposDoc = await this.clientService.obtenerTiposDocumento();
-            if (tiposDoc.length === 0) {
-                console.log(chalk.yellow('\n⚠️ No hay tipos de documento en la BD.'));
-                await inquirer.prompt([{ type: 'input', name: 'cont', message: 'Presiona Enter para continuar...' }]);
-                return;
+            const choicesTipos = tiposDoc.map(t => ({ name: t.tipo, value: t.id }));
+            choicesTipos.push({ name: 'Registrar nuevo tipo de documento', value: 'nuevo' });
+
+            const { tipo_documento } = await inquirer.prompt([
+                { type: 'select', name: 'tipo_documento', message: 'Seleccione el tipo de documento:', choices: choicesTipos }
+            ]);
+            let nombre_tipo_documento;
+            if (tipo_documento === 'nuevo') {
+                const respuesta = await inquirer.prompt([
+                    {
+                        type: 'input',
+                        name: 'nombre_tipo_documento',
+                        message: 'Ingrese el tipo de documento (máx. 10 caracteres):',
+                        validate: valor => {
+                            const tipo = valor.trim();
+                            if (!tipo) return 'El tipo de documento es obligatorio.';
+                            if (tipo.length > 10) return 'No puede superar 10 caracteres.';
+                            return true;
+                        }
+                    }
+                ]);
+                nombre_tipo_documento = respuesta.nombre_tipo_documento;
             }
 
-            const choicesTipos = tiposDoc.map(t => ({ name: t.tipo, value: t.id }));
-
             const respuestas = await inquirer.prompt([
-                { type: 'select', name: 'tipo_documento', message: 'Seleccione el tipo de documento:', choices: choicesTipos },
                 { type: 'input', name: 'nombre', message: 'Ingrese nombre completo:' },
                 { type: 'input', name: 'edad', message: 'Ingrese edad:' },
                 { type: 'input', name: 'telefono', message: 'Ingrese teléfono:' },
                 { type: 'input', name: 'correo', message: 'Ingrese correo electrónico:' }
             ]);
 
-            await this.clientService.registrarCliente(respuestas);
+            await this.clientService.registrarCliente({
+                ...respuestas,
+                tipo_documento,
+                nombre_tipo_documento
+            });
             console.log(chalk.green('\n✅ ¡Cliente registrado exitosamente!'));
         } catch (error) {
             console.log(chalk.red(`\n❌ Error: ${error.message}`));
